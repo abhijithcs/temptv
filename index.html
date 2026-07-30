@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080, initial-scale=1, user-scalable=no">
+<title>Crispr Learning — Creating Scientists of Tomorrow</title>
+<meta name="description" content="Crispr Learning digital signage — Creating Scientists of Tomorrow">
+
+<!-- ===================== Fonts ===================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+/* =====================================================================
+   1. CSS VARIABLES
+   ===================================================================== */
+:root{
+  --teal:            #006073;
+  --teal-light:      #00899e;
+  --teal-dark:       #003b47;
+  --gold:            #FEB602;
+  --gold-light:      #ffd166;
+  --white:           #ffffff;
+  --navy:            #0F172A;
+  --slate:           #1E293B;
+  --mist:            #F8FAFC;
+
+  --bg-deep:         #061219;
+  --glass-bg:        rgba(248, 250, 252, 0.06);
+  --glass-border:    rgba(248, 250, 252, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.35);
+
+  --font-display:    'Outfit', 'Poppins', sans-serif;
+  --font-body:       'Poppins', 'Outfit', sans-serif;
+
+  --title-size:      64px;
+  --subtitle-size:   30px;
+  --bullet-size:     26px;
+
+  --slide-duration:  10000ms; /* 10s per slide  — single constant, easy to tune */
+  --transition-duration: 2000ms; /* 2s crossfade/zoom transition */
+
+  --ease-smooth: cubic-bezier(.22,1,.36,1);
+  --ease-soft:   cubic-bezier(.4,0,.2,1);
+}
+
+/* =====================================================================
+   2. BASE STYLES
+   ===================================================================== */
+*, *::before, *::after{
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body{
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: none;
+}
+
+body{
+  color: var(--mist);
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+img{ -webkit-user-drag: none; }
+
+::-webkit-scrollbar{ display:none; width:0; height:0; }
+
+/* =====================================================================
+   3. LAYOUT
+   ===================================================================== */
+.stage{
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(0,96,115,0.55) 0%, transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(254,182,2,0.12) 0%, transparent 40%),
+    linear-gradient(135deg, var(--navy) 0%, var(--bg-deep) 55%, var(--teal-dark) 130%);
+}
+
+/* animated gradient wash that slowly drifts across every slide */
+.ambient-gradient{
+  position: absolute;
+  inset: -10%;
+  background: conic-gradient(from 0deg at 30% 40%,
+    rgba(0,96,115,0.35), rgba(15,23,42,0) 25%,
+    rgba(254,182,2,0.10) 50%, rgba(15,23,42,0) 75%,
+    rgba(0,96,115,0.35) 100%);
+  filter: blur(60px);
+  animation: rotateWash 60s linear infinite;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes rotateWash{
+  from{ transform: rotate(0deg); }
+  to{ transform: rotate(360deg); }
+}
+
+.bg-canvas-wrap{
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+#bgCanvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.slides{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+.slide{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: center;
+  gap: 40px;
+  padding: 90px 100px 130px 100px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(1.06) translateX(40px);
+  filter: blur(18px);
+  transition:
+    opacity var(--transition-duration) var(--ease-smooth),
+    transform var(--transition-duration) var(--ease-smooth),
+    filter var(--transition-duration) var(--ease-smooth);
+  will-change: opacity, transform, filter;
+}
+
+.slide.is-active{
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: scale(1) translateX(0);
+  filter: blur(0);
+  z-index: 3;
+}
+
+.slide.is-leaving{
+  opacity: 0;
+  transform: scale(0.94) translateX(-60px);
+  filter: blur(18px);
+  z-index: 2;
+}
+
+/* left content column */
+.slide-content{
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding-right: 20px;
+}
+
+.eyebrow{
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  opacity: 0;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.eyebrow .dot{
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 12px 3px rgba(254,182,2,0.8);
+  animation: pulseDot 1.8s ease-in-out infinite;
+}
+
+.slide-title{
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--title-size);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--white);
+}
+
+.slide-title .line{
+  display: block;
+  overflow: hidden;
+}
+
+.slide-title .line span{
+  display: inline-block;
+  background: linear-gradient(100deg, var(--white) 30%, var(--gold-light) 55%, var(--teal-light) 75%, var(--white) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmerText 6s linear infinite;
+}
+
+.slide-subtitle{
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--subtitle-size);
+  line-height: 1.4;
+  color: rgba(248,250,252,0.82);
+  position: relative;
+  padding-bottom: 18px;
+}
+
+.slide-subtitle::after{
+  content: "";
+  position: absolute;
+  left: 1px;
+  bottom: 0;
+  height: 3px;
+  width: 92px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--gold), var(--teal-light));
+  box-shadow: 0 0 16px rgba(254,182,2,0.6);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: underlineGrow 900ms var(--ease-smooth) forwards;
+  animation-delay: 900ms;
+}
+
+.bullet-list{
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.bullet-list li{
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  font-size: var(--bullet-size);
+  font-weight: 400;
+  color: var(--mist);
+  opacity: 0;
+  transform: translateY(22px);
+  line-height: 1.35;
+}
+
+.bullet-list li .icon{
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  margin-top: 2px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(0,96,115,0.55), rgba(254,182,2,0.28));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 0 18px rgba(0,137,158,0.35);
+}
+
+.bullet-list li .icon svg{
+  width: 16px; height: 16px;
+  stroke: var(--gold-light);
+}
+
+/* right image column */
+.slide-media{
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-card{
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 4 / 5;
+  border-radius: 32px;
+  padding: 14px;
+  background: linear-gradient(160deg, rgba(248,250,252,0.14), rgba(248,250,252,0.03));
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    0 30px 80px -20px rgba(0,0,0,0.65),
+    0 0 0 1px rgba(255,255,255,0.03) inset,
+    0 0 60px -10px rgba(0,137,158,0.35);
+  animation: floatCard 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+.media-card::before{
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 32px;
+  padding: 1px;
+  background: conic-gradient(from 0deg, var(--gold), transparent 25%, var(--teal-light), transparent 60%, var(--gold));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.55;
+  animation: rotateWash 8s linear infinite;
+  pointer-events: none;
+}
+
+.media-inner{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--slate), var(--navy));
+}
+
+.media-inner img{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.08);
+  transition: opacity 1200ms var(--ease-smooth), transform 8s var(--ease-soft);
+}
+
+.media-inner img.loaded{
+  opacity: 1;
+  transform: scale(1);
+}
+
+.media-inner img.slow-zoom{
+  transform: scale(1.12);
+}
+
+.media-shine{
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.16) 50%, transparent 60%);
+  background-size: 250% 250%;
+  background-position: 120% 0;
+  animation: shine 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* placeholder for missing images */
+.media-placeholder{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: rgba(248,250,252,0.55);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(0,137,158,0.35), transparent 60%),
+    radial-gradient(circle at 80% 85%, rgba(254,182,2,0.18), transparent 55%),
+    var(--slate);
+  opacity: 0;
+  transition: opacity 800ms ease;
+}
+
+.media-placeholder.visible{ opacity: 1; }
+
+.media-placeholder .ph-icon{
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 0 40px rgba(0,137,158,0.4);
+  animation: floatIcon 4s ease-in-out infinite;
+}
+
+.media-placeholder .ph-icon svg{
+  width: 42px; height: 42px;
+  stroke: var(--gold-light);
+}
+
+.media-placeholder .ph-text{
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(248,250,252,0.45);
+}
+
+.media-placeholder .ph-sub{
+  font-size: 14px;
+  color: rgba(248,250,252,0.3);
+  font-family: monospace;
+}
+
+/* decorative floating badge on media card */
+.media-badge{
+  position: absolute;
+  bottom: -22px;
+  left: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-radius: 18px;
+  background: rgba(15,23,42,0.65);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+  animation: floatCard 7s ease-in-out infinite reverse;
+  z-index: 4;
+}
+
+.media-badge .badge-dot{
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--gold), var(--teal-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--navy);
+}
+
+.media-badge .badge-label{
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--white);
+  line-height: 1.2;
+}
+
+.media-badge .badge-label small{
+  display:block;
+  font-weight: 400;
+  font-size: 12px;
+  color: rgba(248,250,252,0.55);
+  letter-spacing: 0.04em;
+}
+
+/* =====================================================================
+   4. DECORATIVE / BACKGROUND COMPONENTS
+   ===================================================================== */
+
+/* floating blobs */
+.blob{
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.35;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 0;
+}
+
+.blob-a{
+  width: 520px; height: 520px;
+  top: -140px; left: -120px;
+  background: radial-gradient(circle, var(--teal-light), transparent 70%);
+  animation: driftA 22s ease-in-out infinite;
+}
+
+.blob-b{
+  width: 460px; height: 460px;
+  bottom: -160px; right: -100px;
+  background: radial-gradient(circle, var(--gold), transparent 70%);
+  animation: driftB 26s ease-in-out infinite;
+}
+
+.blob-c{
+  width: 360px; height: 360px;
+  top: 40%; right: 20%;
+  background: radial-gradient(circle, var(--teal), transparent 72%);
+  animation: driftC 30s ease-in-out infinite;
+  opacity: 0.22;
+}
+
+/* light rays (slide 3) */
+.light-rays{
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(from 200deg at 80% 10%,
+    rgba(254,182,2,0.14), transparent 12%, transparent 88%, rgba(254,182,2,0.10));
+  mix-blend-mode: screen;
+  animation: rotateWash 90s linear infinite reverse;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* top / bottom vignette so text stays readable from a distance */
+.vignette{
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(6,18,25,0.35) 0%, transparent 18%, transparent 78%, rgba(6,18,25,0.55) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* =====================================================================
+   5. FOOTER / CHROME (logo, progress dots, slide number)
+   ===================================================================== */
+.chrome-footer{
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 60px;
+  z-index: 10;
+  background: linear-gradient(0deg, rgba(6,18,25,0.75) 0%, rgba(6,18,25,0.35) 60%, transparent 100%);
+}
+
+.brand-mark{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark .brand-logo{
+  height: 56px;
+  width: auto;
+  max-width: 240px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 18px rgba(0,137,158,0.45));
+  animation: floatIcon 5s ease-in-out infinite;
+}
+
+.brand-mark .brand-fallback{
+  display: none;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark .logo-glyph{
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--teal), var(--teal-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px rgba(0,137,158,0.55);
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-mark .logo-glyph::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: linear-gradient(115deg, transparent 30%, rgba(254,182,2,0.55) 50%, transparent 70%);
+  background-size: 250% 250%;
+  animation: shine 4s ease-in-out infinite;
+}
+
+.brand-mark .logo-glyph svg{
+  width: 24px; height: 24px;
+  stroke: var(--white);
+  position: relative;
+  z-index: 1;
+}
+
+.brand-mark .brand-text{
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--white);
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.brand-mark .brand-text small{
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  margin-top: 3px;
+}
+
+/* progress indicator: dots + bar */
+.progress-track{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.progress-dot{
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(248,250,252,0.22);
+  overflow: hidden;
+  transition: width 500ms var(--ease-smooth);
+}
+
+.progress-dot.active{
+  width: 96px;
+  background: rgba(248,250,252,0.16);
+}
+
+.progress-dot .fill{
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold), var(--teal-light));
+  box-shadow: 0 0 14px rgba(254,182,2,0.6);
+}
+
+.progress-dot.active .fill{
+  animation: fillBar var(--slide-duration) linear forwards;
+}
+
+.progress-dot.done .fill{
+  transform: scaleX(1);
+}
+
+/* slide counter */
+.slide-counter{
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: rgba(248,250,252,0.55);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.slide-counter .current{
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+
+/* pause indicator (bonus: space to pause) */
+.pause-badge{
+  position: absolute;
+  top: 40px;
+  right: 60px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+
+.pause-badge.visible{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pause-badge .dot{
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+/* =====================================================================
+   6. ANIMATIONS (keyframes)
+   ===================================================================== */
+@keyframes pulseDot{
+  0%, 100%{ opacity: 1; transform: scale(1); }
+  50%{ opacity: 0.5; transform: scale(1.3); }
+}
+
+@keyframes shimmerText{
+  0%{ background-position: 0% 50%; }
+  100%{ background-position: -220% 50%; }
+}
+
+@keyframes underlineGrow{
+  to{ transform: scaleX(1); }
+}
+
+@keyframes floatCard{
+  0%, 100%{ transform: translateY(0) rotate(0deg); }
+  50%{ transform: translateY(-16px) rotate(0.4deg); }
+}
+
+@keyframes floatIcon{
+  0%, 100%{ transform: translateY(0); }
+  50%{ transform: translateY(-10px); }
+}
+
+@keyframes shine{
+  0%{ background-position: 130% 0; }
+  50%{ background-position: -30% 0; }
+  100%{ background-position: -30% 0; }
+}
+
+@keyframes fillBar{
+  from{ transform: scaleX(0); }
+  to{ transform: scaleX(1); }
+}
+
+@keyframes driftA{
+  0%, 100%{ transform: translate(0,0) scale(1); }
+  50%{ transform: translate(60px,50px) scale(1.12); }
+}
+
+@keyframes driftB{
+  0%, 100%{ transform: translate(0,0) scale(1); }
+  50%{ transform: translate(-50px,-40px) scale(1.08); }
+}
+
+@keyframes driftC{
+  0%, 100%{ transform: translate(0,0) scale(1); }
+  50%{ transform: translate(-40px,60px) scale(1.15); }
+}
+
+@keyframes fadeInUp{
+  from{ opacity: 0; transform: translateY(22px); }
+  to{ opacity: 1; transform: translateY(0); }
+}
+
+/* line-by-line title reveal, staggered via nth-child + JS re-trigger */
+.slide.is-active .slide-title .line span{
+  animation: revealLine 900ms var(--ease-smooth) both;
+}
+.slide.is-active .slide-title .line:nth-child(1) span{ animation-delay: 120ms; }
+.slide.is-active .slide-title .line:nth-child(2) span{ animation-delay: 280ms; }
+
+.slide.is-active .eyebrow{
+  animation: fadeInUp 700ms var(--ease-smooth) both;
+  animation-delay: 40ms;
+}
+
+.slide.is-active .slide-subtitle{
+  animation: fadeInUp 800ms var(--ease-smooth) both;
+  animation-delay: 460ms;
+}
+
+.slide.is-active .bullet-list li{
+  animation: fadeInUp 700ms var(--ease-smooth) forwards;
+}
+.slide.is-active .bullet-list li:nth-child(1){ animation-delay: 620ms; }
+.slide.is-active .bullet-list li:nth-child(2){ animation-delay: 720ms; }
+.slide.is-active .bullet-list li:nth-child(3){ animation-delay: 820ms; }
+.slide.is-active .bullet-list li:nth-child(4){ animation-delay: 920ms; }
+.slide.is-active .bullet-list li:nth-child(5){ animation-delay: 1020ms; }
+.slide.is-active .bullet-list li:nth-child(6){ animation-delay: 1120ms; }
+
+.slide.is-active .slide-media{
+  animation: mediaReveal 1100ms var(--ease-smooth) both;
+  animation-delay: 260ms;
+}
+
+@keyframes mediaReveal{
+  from{ opacity: 0; transform: scale(0.92) translateX(24px); filter: blur(10px); }
+  to{ opacity: 1; transform: scale(1) translateX(0); filter: blur(0); }
+}
+
+@keyframes revealLine{
+  from{ opacity: 0; transform: translateY(46px) scale(0.98); filter: blur(6px); }
+  to{ opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* =====================================================================
+   Reduced motion — respect user / device preference
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .ambient-gradient, .blob, .light-rays, #bgCanvas{ display: none; }
+}
+
+/* =====================================================================
+   Small-viewport fallback (kiosk target is 1920x1080, this just keeps
+   it from breaking if previewed on a laptop)
+   ===================================================================== */
+@media (max-width: 1200px){
+  :root{
+    --title-size: 42px;
+    --subtitle-size: 20px;
+    --bullet-size: 17px;
+  }
+  .slide{ grid-template-columns: 1fr; padding: 60px 50px 130px; }
+  .slide-media{ display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+  <!-- shared ambient background layers -->
+  <div class="ambient-gradient" aria-hidden="true"></div>
+  <div class="bg-canvas-wrap" aria-hidden="true"><canvas id="bgCanvas"></canvas></div>
+  <div class="blob blob-a" aria-hidden="true"></div>
+  <div class="blob blob-b" aria-hidden="true"></div>
+  <div class="blob blob-c" aria-hidden="true"></div>
+  <div class="light-rays" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- slides get injected here by JS from the SLIDES config -->
+  <div class="slides" id="slidesRoot"></div>
+
+  <!-- pause badge (bonus keyboard control feedback) -->
+  <div class="pause-badge" id="pauseBadge"><span class="dot"></span><span>Paused</span></div>
+
+  <!-- footer chrome: logo, progress, slide counter -->
+  <footer class="chrome-footer">
+    <div class="brand-mark">
+      <img class="brand-logo" src="images/logo.png" alt="Crispr Learning logo"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      <div class="brand-fallback">
+        <div class="logo-glyph">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2 L12 22 M4 7 Q12 12 20 7 M4 17 Q12 12 20 17"></path>
+          </svg>
+        </div>
+        <div class="brand-text">Crispr Learning<small>Creating Scientists of Tomorrow</small></div>
+      </div>
+    </div>
+
+    <div class="progress-track" id="progressTrack"></div>
+
+    <div class="slide-counter">
+      <span class="current" id="counterCurrent">01</span>
+      <span>/ <span id="counterTotal">03</span></span>
+    </div>
+  </footer>
+
+</div>
+
+<!-- ambient audio support, OFF by default (bonus feature) -->
+<audio id="ambientAudio" loop preload="none" style="display:none;">
+  <source src="audio/ambient.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+/* =====================================================================
+   JAVASCRIPT CONTROLLER
+   =====================================================================
+   Sections:
+     A. Slide content config (edit this to add/remove slides)
+     B. DOM builders
+     C. Background particle / molecule canvas
+     D. Slide loop / transition engine
+     E. Keyboard + visibility controls
+   ===================================================================== */
+
+(function(){
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     A. SLIDE CONTENT — edit this array to add slides without touching
+        any rendering logic below.
+     ------------------------------------------------------------------ */
+  const SLIDES = [
+    {
+      eyebrow: "Crispr Learning",
+      title: ["Welcome to", "Crispr Learning"],
+      subtitle: "Creating Scientists of Tomorrow",
+      bullets: [
+        "Premier coaching for IISER IAT aspirants",
+        "Online and Offline classroom programs",
+        "Mentorship by IISER alumni",
+        "Small focused batches",
+        "Personal academic guidance",
+        "Modern digital learning platform"
+      ],
+      image: "images/slide1.jpeg",
+      alt: "Students engaged in a modern science classroom at Crispr Learning",
+      badge: { code: "01", label: "Welcome", sub: "To The Future Of Science" },
+      bgVariant: "molecules"
+    },
+    {
+      eyebrow: "The Crispr Difference",
+      title: ["Why Choose", "Crispr?"],
+      subtitle: "Learning Designed for Future Scientists",
+      bullets: [
+        "Concept-first teaching",
+        "Regular mock examinations",
+        "Previous year question practice",
+        "Individual performance analytics",
+        "Interactive classroom sessions",
+        "Dedicated mentorship"
+      ],
+      image: "images/slide2.jpeg",
+      alt: "Mentor guiding students through scientific concepts",
+      badge: { code: "02", label: "Our Approach", sub: "Precision-Built Curriculum" },
+      bgVariant: "dna"
+    },
+    {
+      eyebrow: "Admissions Open",
+      title: ["Join the", "Journey"],
+      subtitle: "Dream. Discover. Innovate.",
+      bullets: [
+        "IISER IAT Preparation",
+        "Expert Faculty",
+        "Scientific Thinking",
+        "Technology Driven Learning",
+        "Supportive Learning Community",
+        "Admissions Open"
+      ],
+      image: "images/slide3.jpeg",
+      alt: "Students celebrating scientific discovery and innovation",
+      badge: { code: "03", label: "Enroll Today", sub: "Seats Filling Fast" },
+      bgVariant: "aurora"
+    }
+  ];
+
+  const SLIDE_DURATION = parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue('--slide-duration')) || 10000;
+  const TRANSITION_DURATION = parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue('--transition-duration')) || 2000;
+
+  const svgIcons = {
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"></path></svg>',
+    photo: '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5.5-5.5L9 17"></path></svg>'
+  };
+
+  /* ------------------------------------------------------------------
+     B. DOM BUILDERS
+     ------------------------------------------------------------------ */
+  const slidesRoot = document.getElementById('slidesRoot');
+  const progressTrack = document.getElementById('progressTrack');
+  const counterCurrent = document.getElementById('counterCurrent');
+  const counterTotal = document.getElementById('counterTotal');
+  const pauseBadge = document.getElementById('pauseBadge');
+
+  function pad(n){ return String(n).padStart(2, '0'); }
+
+  function buildSlideEl(data, index){
+    const el = document.createElement('section');
+    el.className = 'slide';
+    el.setAttribute('role', 'group');
+    el.setAttribute('aria-roledescription', 'slide');
+    el.setAttribute('aria-label', `Slide ${index + 1} of ${SLIDES.length}: ${data.title.join(' ')}`);
+    el.dataset.index = index;
+
+    const titleLines = data.title.map(line =>
+      `<span class="line"><span>${line}</span></span>`
+    ).join('');
+
+    const bulletItems = data.bullets.map(text =>
+      `<li><span class="icon">${svgIcons.check}</span><span>${text}</span></li>`
+    ).join('');
+
+    el.innerHTML = `
+      <div class="slide-content">
+        <h1 class="slide-title">${titleLines}</h1>
+        <p class="slide-subtitle">${data.subtitle}</p>
+        <ul class="bullet-list">${bulletItems}</ul>
+      </div>
+      <div class="slide-media">
+        <div class="media-card">
+          <div class="media-inner">
+            <div class="media-placeholder">
+              <div class="ph-icon">${svgIcons.photo}</div>
+              <div class="ph-text">Image Coming Soon</div>
+              <div class="ph-sub">${data.image}</div>
+            </div>
+            <img data-src="${data.image}" alt="${data.alt}" />
+            <div class="media-shine"></div>
+          </div>
+          <div class="media-badge">
+            <div class="badge-dot">${data.badge.code}</div>
+            <div class="badge-label">${data.badge.label}<small>${data.badge.sub}</small></div>
+          </div>
+        </div>
+      </div>
+    `;
+    return el;
+  }
+
+  function buildProgressDots(){
+    progressTrack.innerHTML = '';
+    SLIDES.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'progress-dot';
+      dot.dataset.index = i;
+      dot.innerHTML = '<span class="fill"></span>';
+      progressTrack.appendChild(dot);
+    });
+  }
+
+  // build once
+  SLIDES.forEach((data, i) => slidesRoot.appendChild(buildSlideEl(data, i)));
+  buildProgressDots();
+  counterTotal.textContent = pad(SLIDES.length);
+
+  const slideEls = Array.from(slidesRoot.children);
+  const dotEls = Array.from(progressTrack.children);
+
+  /* ------------------------------------------------------------------
+     C. BACKGROUND CANVAS — floating molecules / particles / DNA curves
+        Lightweight, GPU-friendly (transform-free canvas draw, low
+        particle count, capped DPR, paused when tab hidden).
+     ------------------------------------------------------------------ */
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let rafId = null;
+  let running = true;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function sizeCanvas(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function makeParticles(){
+    const count = Math.round((window.innerWidth * window.innerHeight) / 42000);
+    particles = Array.from({ length: Math.min(count, 46) }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: 1.4 + Math.random() * 2.6,
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: (Math.random() - 0.5) * 0.12,
+      hueGold: Math.random() > 0.6,
+      pulse: Math.random() * Math.PI * 2,
+      linkDist: 150
+    }));
+  }
+
+  function drawMolecule(x, y, scale, alpha){
+    // small hexagonal "molecule" glyph made of nodes + bonds
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = 'rgba(0,137,158,0.5)';
+    ctx.lineWidth = 1.2;
+    const pts = [];
+    for(let i = 0; i < 6; i++){
+      const a = (Math.PI / 3) * i;
+      pts.push([Math.cos(a) * 26, Math.sin(a) * 26]);
+    }
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+    ctx.closePath();
+    ctx.stroke();
+    pts.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(254,182,2,0.55)';
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  let t = 0;
+  const molecules = [
+    { x: 0.12, y: 0.72, scale: 1.1, speed: 0.15 },
+    { x: 0.88, y: 0.22, scale: 0.85, speed: 0.11 },
+    { x: 0.68, y: 0.85, scale: 0.7, speed: 0.09 }
+  ];
+
+  function drawFrame(){
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    // connecting lines (network / DNA feel)
+    for(let i = 0; i < particles.length; i++){
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.pulse += 0.012;
+
+      if(p.x < -20) p.x = window.innerWidth + 20;
+      if(p.x > window.innerWidth + 20) p.x = -20;
+      if(p.y < -20) p.y = window.innerHeight + 20;
+      if(p.y > window.innerHeight + 20) p.y = -20;
+
+      for(let j = i + 1; j < particles.length; j++){
+        const q = particles[j];
+        const dx = p.x - q.x, dy = p.y - q.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist < p.linkDist){
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = `rgba(0,137,158,${0.14 * (1 - dist / p.linkDist)})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+
+    particles.forEach(p => {
+      const glow = 0.55 + Math.sin(p.pulse) * 0.3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r + Math.sin(p.pulse) * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = p.hueGold
+        ? `rgba(254,182,2,${0.45 * glow})`
+        : `rgba(0,137,158,${0.55 * glow})`;
+      ctx.fill();
+    });
+
+    // floating molecule glyphs, gently drifting
+    t += 0.0032;
+    molecules.forEach((m, i) => {
+      const x = m.x * window.innerWidth + Math.sin(t * m.speed * 4 + i) * 30;
+      const y = m.y * window.innerHeight + Math.cos(t * m.speed * 3 + i) * 22;
+      drawMolecule(x, y, m.scale + Math.sin(t + i) * 0.04, 0.5);
+    });
+
+    if(running) rafId = requestAnimationFrame(drawFrame);
+  }
+
+  function startCanvas(){
+    if(rafId) return;
+    running = true;
+    rafId = requestAnimationFrame(drawFrame);
+  }
+
+  function stopCanvas(){
+    running = false;
+    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  sizeCanvas();
+  makeParticles();
+  if(!reduceMotion){
+    startCanvas();
+  }
+  window.addEventListener('resize', () => {
+    sizeCanvas();
+    makeParticles();
+  }, { passive: true });
+
+  /* ------------------------------------------------------------------
+     D. SLIDE LOOP / TRANSITION ENGINE
+     ------------------------------------------------------------------ */
+  let current = 0;
+  let paused = false;
+  let advanceTimer = null;
+  let imagesLoadedFor = new Set();
+
+  function loadImageFor(index){
+    if(imagesLoadedFor.has(index)) return;
+    imagesLoadedFor.add(index);
+
+    const slideEl = slideEls[index];
+    const img = slideEl.querySelector('img[data-src]');
+    const placeholder = slideEl.querySelector('.media-placeholder');
+    if(!img) return;
+
+    const src = img.getAttribute('data-src');
+    const probe = new Image();
+    probe.onload = () => {
+      img.src = src;
+      img.classList.add('loaded');
+      requestAnimationFrame(() => img.classList.add('slow-zoom'));
+    };
+    probe.onerror = () => {
+      placeholder.classList.add('visible');
+    };
+    probe.src = src;
+  }
+
+  function setActiveDot(index){
+    dotEls.forEach((dot, i) => {
+      dot.classList.remove('active', 'done');
+      const fill = dot.querySelector('.fill');
+      fill.style.animation = 'none';
+      // force reflow so re-adding the animation restarts it cleanly
+      void fill.offsetWidth;
+      if(i < index){
+        dot.classList.add('done');
+      } else if(i === index){
+        dot.classList.add('active');
+        fill.style.animation = '';
+      }
+    });
+  }
+
+  function goTo(index, opts){
+    opts = opts || {};
+    const total = slideEls.length;
+    const next = ((index % total) + total) % total;
+
+    slideEls.forEach((el, i) => {
+      if(i === current && i !== next){
+        el.classList.add('is-leaving');
+        el.classList.remove('is-active');
+        setTimeout(() => el.classList.remove('is-leaving'), TRANSITION_DURATION);
+      }
+    });
+
+    const nextEl = slideEls[next];
+    // restart line-by-line text animations by forcing reflow
+    nextEl.classList.remove('is-active');
+    void nextEl.offsetWidth;
+    nextEl.classList.add('is-active');
+
+    current = next;
+    counterCurrent.textContent = pad(current + 1);
+    setActiveDot(current);
+    loadImageFor(current);
+    // preload the following slide's image ahead of time
+    loadImageFor((current + 1) % total);
+
+    if(!opts.silent){ scheduleAdvance(); }
+  }
+
+  function scheduleAdvance(){
+    clearTimeout(advanceTimer);
+    if(paused) return;
+    advanceTimer = setTimeout(() => goTo(current + 1), SLIDE_DURATION);
+  }
+
+  function pause(){
+    if(paused) return;
+    paused = true;
+    clearTimeout(advanceTimer);
+    document.querySelectorAll('.progress-dot.active .fill').forEach(f => {
+      f.style.animationPlayState = 'paused';
+    });
+    slideEls[current].style.setProperty('--pause', '1');
+    document.querySelectorAll('.slide.is-active, .slide.is-active *').forEach(el => {
+      el.style.animationPlayState = 'paused';
+    });
+    pauseBadge.classList.add('visible');
+  }
+
+  function resume(){
+    if(!paused) return;
+    paused = false;
+    document.querySelectorAll('.progress-dot.active .fill').forEach(f => {
+      f.style.animationPlayState = 'running';
+    });
+    document.querySelectorAll('.slide.is-active, .slide.is-active *').forEach(el => {
+      el.style.animationPlayState = 'running';
+    });
+    pauseBadge.classList.remove('visible');
+    scheduleAdvance();
+  }
+
+  // kick off: first slide active immediately, no transition-in delay
+  loadImageFor(0);
+  loadImageFor(1);
+  slideEls[0].classList.add('is-active');
+  setActiveDot(0);
+  scheduleAdvance();
+
+  /* ------------------------------------------------------------------
+     E. KEYBOARD SHORTCUTS + VISIBILITY HANDLING (bonus features)
+     ------------------------------------------------------------------ */
+  window.addEventListener('keydown', (e) => {
+    switch(e.key){
+      case 'ArrowRight':
+        goTo(current + 1);
+        break;
+      case 'ArrowLeft':
+        goTo(current - 1);
+        break;
+      case ' ':
+        e.preventDefault();
+        paused ? resume() : pause();
+        break;
+      case 'm': // bonus: toggle ambient audio (disabled/muted by default)
+      case 'M': {
+        const audio = document.getElementById('ambientAudio');
+        if(audio.paused){ audio.volume = 0.25; audio.play().catch(() => {}); }
+        else { audio.pause(); }
+        break;
+      }
+    }
+  });
+
+  // pause all animation/canvas work when tab/screen is hidden — saves
+  // power on always-on kiosk displays and avoids drift on return.
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      stopCanvas();
+      clearTimeout(advanceTimer);
+    } else {
+      if(!reduceMotion) startCanvas();
+      if(!paused) scheduleAdvance();
+    }
+  });
+
+  // safety net: if something throws mid-cycle, keep the loop alive
+  window.addEventListener('error', () => {
+    if(!advanceTimer && !paused){ scheduleAdvance(); }
+  });
+
+})();
+</script>
+</body>
+</html>
