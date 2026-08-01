@@ -91,16 +91,20 @@ img{ -webkit-user-drag: none; }
     linear-gradient(135deg, var(--navy) 0%, var(--bg-deep) 55%, var(--teal-dark) 130%);
 }
 
-/* animated gradient wash that slowly drifts across every slide */
+/* animated gradient wash that slowly drifts across every slide.
+   NOTE: intentionally no `filter: blur()` here — that combined with the
+   rotation forces a full-screen filter recompute every frame, which
+   hangs low-power Android TV GPUs. Softness comes from wide, mostly
+   transparent gradient stops instead, which is compositor-cheap. */
 .ambient-gradient{
   position: absolute;
-  inset: -10%;
+  inset: -20%;
   background: conic-gradient(from 0deg at 30% 40%,
-    rgba(0,96,115,0.35), rgba(15,23,42,0) 25%,
-    rgba(254,182,2,0.10) 50%, rgba(15,23,42,0) 75%,
-    rgba(0,96,115,0.35) 100%);
-  filter: blur(60px);
-  animation: rotateWash 60s linear infinite;
+    rgba(0,96,115,0.22) 0%, rgba(15,23,42,0) 18%,
+    rgba(15,23,42,0) 32%, rgba(254,182,2,0.07) 50%,
+    rgba(15,23,42,0) 68%, rgba(15,23,42,0) 82%,
+    rgba(0,96,115,0.22) 100%);
+  animation: rotateWash 90s linear infinite;
   will-change: transform;
   pointer-events: none;
   z-index: 0;
@@ -145,12 +149,14 @@ img{ -webkit-user-drag: none; }
   visibility: hidden;
   pointer-events: none;
   transform: scale(1.06) translateX(40px);
-  filter: blur(18px);
+  /* transform + opacity only — no `filter: blur()` on this full-screen
+     layer. A blurred full-viewport element recomputed every transition
+     frame is one of the most expensive things you can ask a weak/older
+     Android TV GPU to do, and it can stall the renderer entirely. */
   transition:
     opacity var(--transition-duration) var(--ease-smooth),
-    transform var(--transition-duration) var(--ease-smooth),
-    filter var(--transition-duration) var(--ease-smooth);
-  will-change: opacity, transform, filter;
+    transform var(--transition-duration) var(--ease-smooth);
+  will-change: opacity, transform;
 }
 
 .slide.is-active{
@@ -158,14 +164,12 @@ img{ -webkit-user-drag: none; }
   visibility: visible;
   pointer-events: auto;
   transform: scale(1) translateX(0);
-  filter: blur(0);
   z-index: 3;
 }
 
 .slide.is-leaving{
   opacity: 0;
   transform: scale(0.94) translateX(-60px);
-  filter: blur(18px);
   z-index: 2;
 }
 
@@ -177,34 +181,6 @@ img{ -webkit-user-drag: none; }
   flex-direction: column;
   gap: 26px;
   padding-right: 20px;
-}
-
-.eyebrow{
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  width: fit-content;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: var(--gold-light);
-  opacity: 0;
-  padding: 10px 22px;
-  border-radius: 999px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.eyebrow .dot{
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 12px 3px rgba(254,182,2,0.8);
-  animation: pulseDot 1.8s ease-in-out infinite;
 }
 
 .slide-title{
@@ -310,13 +286,16 @@ img{ -webkit-user-drag: none; }
   position: relative;
   width: 100%;
   max-width: 900px;
-  aspect-ratio: 4 / 3;
+  /* 4:3 via the classic padding-bottom technique instead of the
+     `aspect-ratio` property — older Android TV WebViews (pre-Chrome 88)
+     don't support aspect-ratio and would collapse this box to near-zero
+     height, hiding the image entirely. height:0 + padding-bottom:%
+     of width works on effectively every browser ever shipped. */
+  height: 0;
+  padding-bottom: 75%;
   border-radius: 32px;
-  padding: 14px;
-  background: linear-gradient(160deg, rgba(248,250,252,0.14), rgba(248,250,252,0.03));
+  background: linear-gradient(160deg, rgba(248,250,252,0.16), rgba(248,250,252,0.05));
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   box-shadow:
     0 30px 80px -20px rgba(0,0,0,0.65),
     0 0 0 1px rgba(255,255,255,0.03) inset,
@@ -336,14 +315,16 @@ img{ -webkit-user-drag: none; }
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0.55;
-  animation: rotateWash 8s linear infinite;
   pointer-events: none;
 }
 
 .media-inner{
-  position: relative;
-  width: 100%;
-  height: 100%;
+  /* absolutely positioned + inset instead of a flow child sized by
+     parent padding — .media-card has height:0 (see above), so a normal
+     flow child here would also collapse to zero height. Insetting from
+     the card's four edges recreates the same 14px "frame" look. */
+  position: absolute;
+  inset: 14px;
   border-radius: 22px;
   overflow: hidden;
   background: linear-gradient(160deg, var(--slate), var(--navy));
@@ -442,10 +423,8 @@ img{ -webkit-user-drag: none; }
   gap: 12px;
   padding: 14px 22px;
   border-radius: 18px;
-  background: rgba(15,23,42,0.65);
+  background: rgba(9,16,26,0.92);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
   animation: floatCard 7s ease-in-out infinite reverse;
   z-index: 4;
@@ -484,11 +463,14 @@ img{ -webkit-user-drag: none; }
    4. DECORATIVE / BACKGROUND COMPONENTS
    ===================================================================== */
 
-/* floating blobs */
+/* floating blobs — filter+will-change:transform here is the "good"
+   blur pattern (the blur itself never changes, only translate/scale
+   animate), so the GPU can cache one blurred texture and just move it.
+   Radius trimmed from 70px to keep the initial paint cheap too. */
 .blob{
   position: absolute;
   border-radius: 50%;
-  filter: blur(70px);
+  filter: blur(50px);
   opacity: 0.35;
   pointer-events: none;
   will-change: transform;
@@ -696,10 +678,8 @@ img{ -webkit-user-drag: none; }
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--gold-light);
-  background: var(--glass-bg);
+  background: rgba(9,16,26,0.88);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   opacity: 0;
   transform: translateY(-10px);
   pointer-events: none;
@@ -808,13 +788,13 @@ img{ -webkit-user-drag: none; }
 }
 
 @keyframes mediaReveal{
-  from{ opacity: 0; transform: scale(0.92) translateX(24px); filter: blur(10px); }
-  to{ opacity: 1; transform: scale(1) translateX(0); filter: blur(0); }
+  from{ opacity: 0; transform: scale(0.92) translateX(24px); }
+  to{ opacity: 1; transform: scale(1) translateX(0); }
 }
 
 @keyframes revealLine{
-  from{ opacity: 0; transform: translateY(46px) scale(0.98); filter: blur(6px); }
-  to{ opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  from{ opacity: 0; transform: translateY(46px) scale(0.98); }
+  to{ opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* =====================================================================
@@ -1066,7 +1046,10 @@ img{ -webkit-user-drag: none; }
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function sizeCanvas(){
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // capped at 1.5 (not 2) — on a 1920x1080 kiosk panel a dpr-2 canvas
+    // is ~4x the pixels to redraw every frame, which is wasted cost on
+    // weak/low-power Android TV GPUs for an effect this subtle.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
     canvas.style.width = window.innerWidth + 'px';
@@ -1075,8 +1058,8 @@ img{ -webkit-user-drag: none; }
   }
 
   function makeParticles(){
-    const count = Math.round((window.innerWidth * window.innerHeight) / 42000);
-    particles = Array.from({ length: Math.min(count, 46) }, () => ({
+    const count = Math.round((window.innerWidth * window.innerHeight) / 60000);
+    particles = Array.from({ length: Math.min(count, 28) }, () => ({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
       r: 1.4 + Math.random() * 2.6,
