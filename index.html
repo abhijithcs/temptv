@@ -16,7 +16,7 @@
   --teal-light:      #00899e;
   --bar-track:       rgba(255,255,255,0.18);
 
-  --slide-duration:      10000ms; /* time each image stays on screen */
+  --slide-duration:      10000ms; /* default dwell time; each slide's own `seconds` overrides it */
   --transition-duration:  1500ms; /* crossfade length between images */
   --ease-smooth: cubic-bezier(.22,1,.36,1);
 }
@@ -100,7 +100,7 @@ html, body{
   transform: scale(1.08);
 }
 
-/* placeholder shown when no images/image-N.* files are found */
+/* placeholder shown when the default image itself fails to load */
 .no-images{
   position: absolute;
   inset: 0;
@@ -156,6 +156,9 @@ html, body{
   gap: 20px;
   background: linear-gradient(0deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.0) 100%);
 }
+
+/* author `display:flex` above would otherwise override the hidden attribute */
+.bottom-chrome[hidden]{ display: none; }
 
 .progress-bar{
   position: relative;
@@ -224,8 +227,8 @@ html, body{
       <div class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5.5-5.5L9 17"></path></svg>
       </div>
-      <div class="msg">No images found</div>
-      <div class="hint" id="noImagesHint">images/image-1.jpg, image-2.jpg, …</div>
+      <div class="msg">No slides available</div>
+      <div class="hint" id="noImagesHint">Waiting for slides from the API…</div>
     </div>
 
     <div class="bottom-chrome" id="bottomChrome" hidden>
@@ -239,71 +242,126 @@ html, body{
 /* =====================================================================
    JAVASCRIPT CONTROLLER
    Sections:
-     A. Image discovery (probes images/image-1, image-2, … automatically)
-     B. Slideshow build + crossfade loop
+     A. API fetch + IndexedDB cache of base64 slides
+     B. Slideshow build + crossfade loop (per-slide durations)
      C. Visibility handling + kiosk auto-refresh
    ===================================================================== */
 (function(){
   "use strict";
 
-  const FOLDER = "images/";
-  const NAME_PREFIX = "image-";
-  const EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
-  const MAX_INDEX = 30; // highest image-N this will look for
+  const API_URL = "https://crisprtech.app/crispr-apis/public/tv-content.php";
+  const DEFAULT_SECONDS = 10;        // used when an item has no valid `seconds`
+  const DEFAULT_IMAGE = "images/default.png"; // shown, untimed, when the API gives nothing
+  const RETRY_INTERVAL = 15000;      // retry delay while nothing is cached/available
 
-  const SLIDE_DURATION = parseInt(getComputedStyle(document.documentElement)
-    .getPropertyValue('--slide-duration')) || 10000;
+  const CACHE_DB = "temptv-cache";
+  const CACHE_STORE = "kv";
+  const CACHE_KEY = "slides";
 
   const stage = document.getElementById('stage');
   const noImagesEl = document.getElementById('noImages');
-  const noImagesHint = document.getElementById('noImagesHint');
   const bottomChrome = document.getElementById('bottomChrome');
   const progressFill = document.getElementById('progressFill');
   const counterCurrent = document.getElementById('counterCurrent');
   const counterTotal = document.getElementById('counterTotal');
 
   /* ------------------------------------------------------------------
-     A. IMAGE DISCOVERY — tries images/image-1.jpg, image-1.jpeg, ...
-        up through image-30, in parallel, with no code changes needed
-        to add more images later; just drop the file in and it appears
-        on the next auto-refresh.
+     A. API + CACHE — slides come from API_URL as
+        { status, data: [{ id, title, imageData: <base64 data URI>, duration }] }. The last good response
+        is kept in IndexedDB so the TV can start instantly (and offline)
+        from cache while a fresh copy is fetched in the background.
+        IndexedDB rather than localStorage: base64 images easily exceed
+        localStorage's ~5 MB quota.
      ------------------------------------------------------------------ */
-  function probeUrl(url){
+  function openDb(){
     return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = url;
+      try{
+        const req = indexedDB.open(CACHE_DB, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(CACHE_STORE);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      }catch(e){ resolve(null); }
     });
   }
 
-  async function probeIndex(i){
-    for(const ext of EXTENSIONS){
-      const url = `${FOLDER}${NAME_PREFIX}${i}.${ext}`;
-      if(await probeUrl(url)) return url;
-    }
-    return null;
+  async function cacheGet(){
+    const db = await openDb();
+    if(!db) return null;
+    return new Promise((resolve) => {
+      try{
+        const req = db.transaction(CACHE_STORE).objectStore(CACHE_STORE).get(CACHE_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      }catch(e){ resolve(null); }
+    });
   }
 
-  async function discoverImages(){
-    const candidates = Array.from({ length: MAX_INDEX }, (_, i) => probeIndex(i + 1));
-    const resolved = await Promise.all(candidates);
-    return resolved.filter(Boolean);
+  async function cachePut(slides){
+    const db = await openDb();
+    if(!db) return;
+    try{
+      db.transaction(CACHE_STORE, 'readwrite').objectStore(CACHE_STORE).put(slides, CACHE_KEY);
+    }catch(e){ /* cache is best-effort */ }
+  }
+
+  // accepts a full data: URI, or bare base64 (mime sniffed from its header)
+  function toDataUri(b64){
+    if(b64.indexOf('data:') === 0) return b64;
+    let mime = 'image/jpeg';
+    if(b64.indexOf('iVBOR') === 0) mime = 'image/png';
+    else if(b64.indexOf('UklGR') === 0) mime = 'image/webp';
+    else if(b64.indexOf('R0lGOD') === 0) mime = 'image/gif';
+    return `data:${mime};base64,${b64}`;
+  }
+
+  // API payload { status, data: [{ id, title, imageData, duration }] }
+  // -> [{ src, seconds }], dropping malformed items. Items keep the API's
+  // order (or sort by an `order` field if one is ever provided).
+  function normalize(payload){
+    const list = payload && Array.isArray(payload.data) ? payload.data : [];
+    return list
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => item && typeof item.imageData === 'string' && item.imageData)
+      .sort((a, b) => ((Number(a.item.order) || 0) - (Number(b.item.order) || 0)) || (a.index - b.index))
+      .map(({ item }) => ({
+        src: toDataUri(item.imageData),
+        seconds: Number(item.duration) > 0 ? Number(item.duration) : DEFAULT_SECONDS
+      }));
+  }
+
+  async function fetchSlides(){
+    const res = await fetch(API_URL, { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const payload = await res.json();
+    if(!payload || payload.status !== 'success') throw new Error('API status: ' + (payload && payload.status));
+    return payload;
   }
 
   /* ------------------------------------------------------------------
      B. SLIDESHOW — plain crossfade, fixed dwell time, loops forever
      ------------------------------------------------------------------ */
   let slideEls = [];
+  let durations = [];
   let current = 0;
   let paused = false;
   let advanceTimer = null;
+  let shownSignature = null;
+  let showingDefault = false;
 
-  function buildSlides(urls){
-    urls.forEach((url, i) => {
+  function buildSlides(slides){
+    slideEls.forEach((el) => el.remove());
+    slideEls = [];
+    durations = slides.map((s) => s.seconds * 1000);
+
+    slides.forEach((slide, i) => {
       const el = document.createElement('div');
       el.className = 'slide';
-      el.innerHTML = `<img src="${url}" alt="Crispr Learning slide ${i + 1}">`;
+      const img = document.createElement('img');
+      img.alt = `Crispr Learning slide ${i + 1}`;
+      img.src = slide.src;
+      // Ken Burns drift lasts as long as the slide is on screen
+      img.style.transitionDuration = slide.seconds + 's';
+      el.appendChild(img);
       stage.insertBefore(el, bottomChrome);
       slideEls.push(el);
     });
@@ -311,11 +369,13 @@ html, body{
 
   function setProgress(running){
     progressFill.classList.remove('running', 'done');
+    progressFill.style.animationDuration = (durations[current] / 1000) + 's';
     void progressFill.offsetWidth; // restart the CSS animation cleanly
     progressFill.classList.add(running ? 'running' : 'done');
   }
 
   function goTo(index){
+    if(showingDefault) return;
     const total = slideEls.length;
     const next = ((index % total) + total) % total;
 
@@ -330,7 +390,7 @@ html, body{
   function scheduleAdvance(){
     clearTimeout(advanceTimer);
     if(paused) return;
-    advanceTimer = setTimeout(() => goTo(current + 1), SLIDE_DURATION);
+    advanceTimer = setTimeout(() => goTo(current + 1), durations[current]);
   }
 
   function pause(){
@@ -347,24 +407,77 @@ html, body{
     scheduleAdvance();
   }
 
-  async function start(){
-    const urls = await discoverImages();
-
-    if(urls.length === 0){
-      noImagesEl.classList.add('visible');
-      // keep checking — images may be added to the folder after boot
-      setTimeout(start, 15000);
-      return;
-    }
-
+  function show(slides){
+    clearTimeout(advanceTimer);
+    showingDefault = false;
     noImagesEl.classList.remove('visible');
     bottomChrome.hidden = false;
-    counterTotal.textContent = String(urls.length);
+    counterTotal.textContent = String(slides.length);
+    buildSlides(slides);
+    goTo(0);
+  }
 
-    buildSlides(urls);
-    slideEls[0].classList.add('is-active');
-    setProgress(true);
-    scheduleAdvance();
+  // Static fallback: one untimed image, no progress bar, no advancing.
+  function showDefault(){
+    if(showingDefault) return;
+    clearTimeout(advanceTimer);
+    showingDefault = true;
+    shownSignature = null;
+    bottomChrome.hidden = true;
+    noImagesEl.classList.remove('visible');
+
+    slideEls.forEach((el) => el.remove());
+    durations = [];
+    current = 0;
+
+    const el = document.createElement('div');
+    el.className = 'slide is-active';
+    const img = document.createElement('img');
+    img.alt = 'Crispr Learning';
+    img.style.transition = 'none'; // no Ken Burns drift on the static image
+    img.onerror = () => noImagesEl.classList.add('visible'); // default missing too
+    img.src = DEFAULT_IMAGE;
+    el.appendChild(img);
+    stage.insertBefore(el, bottomChrome);
+    slideEls = [el];
+  }
+
+  // Fetch fresh slides; re-render + re-cache only when they differ from
+  // what is already on screen (e.g. the cached copy shown at boot).
+  async function sync(){
+    let raw = null;
+    let fetched = false;
+    try{
+      raw = await fetchSlides();
+      fetched = true;
+    }catch(e){
+      console.warn('Slide fetch failed:', e);
+    }
+
+    const fresh = normalize(raw);
+    if(fresh.length){
+      const signature = JSON.stringify(fresh);
+      if(signature !== shownSignature){
+        shownSignature = signature;
+        cachePut(raw); // cache the raw payload; normalize() runs on read
+        show(fresh);
+      }
+    } else {
+      // API answered with no usable slides: drop the stale cache and show the
+      // default. If the API just failed, keep cached slides when we have them.
+      if(fetched) cachePut(raw);
+      if(fetched || slideEls.length === 0) showDefault();
+      setTimeout(sync, RETRY_INTERVAL);
+    }
+  }
+
+  async function start(){
+    const cached = normalize(await cacheGet());
+    if(cached.length){
+      shownSignature = JSON.stringify(cached);
+      show(cached);
+    }
+    sync();
   }
 
   start();
@@ -381,7 +494,7 @@ html, body{
   });
 
   window.addEventListener('keydown', (e) => {
-    if(slideEls.length === 0) return;
+    if(slideEls.length === 0 || showingDefault) return;
     switch(e.key){
       case 'ArrowRight': goTo(current + 1); break;
       case 'ArrowLeft': goTo(current - 1); break;
@@ -389,8 +502,8 @@ html, body{
     }
   });
 
-  // hard-reload from the network every 5 minutes (cache-busted) so newly
-  // added images or an updated file reach the TV without manual restart.
+  // hard-reload every 5 minutes (cache-busted) so page updates reach the TV
+  // without a manual restart; slides then boot from cache and re-sync.
   const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000;
   setInterval(() => {
     const url = new URL(window.location.href);
