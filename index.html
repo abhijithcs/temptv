@@ -242,7 +242,7 @@ html, body{
 /* =====================================================================
    JAVASCRIPT CONTROLLER
    Sections:
-     A. API fetch + IndexedDB cache of base64 slides
+     A. API fetch + IndexedDB cache of the slide list
      B. Slideshow build + crossfade loop (per-slide durations)
      C. Visibility handling + kiosk auto-refresh
    ===================================================================== */
@@ -267,11 +267,10 @@ html, body{
 
   /* ------------------------------------------------------------------
      A. API + CACHE — slides come from API_URL as
-        { status, data: [{ id, title, imageData: <base64 data URI>, duration }] }. The last good response
-        is kept in IndexedDB so the TV can start instantly (and offline)
-        from cache while a fresh copy is fetched in the background.
-        IndexedDB rather than localStorage: base64 images easily exceed
-        localStorage's ~5 MB quota.
+        { status, data: [{ id, title, imageData: <image URL>, duration }] }. The last good response
+        (the URL list) is kept in IndexedDB so the TV can start instantly
+        from cache while a fresh copy is fetched in the background; the
+        image files themselves are served from the CDN / browser HTTP cache.
      ------------------------------------------------------------------ */
   function openDb(){
     return new Promise((resolve) => {
@@ -304,17 +303,19 @@ html, body{
     }catch(e){ /* cache is best-effort */ }
   }
 
-  // accepts a full data: URI, or bare base64 (mime sniffed from its header)
-  function toDataUri(b64){
-    if(b64.indexOf('data:') === 0) return b64;
+  // `imageData` is normally an http(s) URL (CDN). Full data: URIs and relative
+  // paths pass through untouched; anything else is treated as bare base64
+  // (mime sniffed from its header) for backwards compatibility.
+  function toImageSrc(value){
+    if(/^(https?:|data:|blob:|\/|\.\/|\.\.\/)/i.test(value)) return value;
     let mime = 'image/jpeg';
-    if(b64.indexOf('iVBOR') === 0) mime = 'image/png';
-    else if(b64.indexOf('UklGR') === 0) mime = 'image/webp';
-    else if(b64.indexOf('R0lGOD') === 0) mime = 'image/gif';
-    return `data:${mime};base64,${b64}`;
+    if(value.indexOf('iVBOR') === 0) mime = 'image/png';
+    else if(value.indexOf('UklGR') === 0) mime = 'image/webp';
+    else if(value.indexOf('R0lGOD') === 0) mime = 'image/gif';
+    return `data:${mime};base64,${value}`;
   }
 
-  // API payload { status, data: [{ id, title, imageData, duration }] }
+  // API payload { status, data: [{ id, title, imageData (URL), duration }] }
   // -> [{ src, seconds }], dropping malformed items. Items keep the API's
   // order (or sort by an `order` field if one is ever provided).
   function normalize(payload){
@@ -324,7 +325,7 @@ html, body{
       .filter(({ item }) => item && typeof item.imageData === 'string' && item.imageData)
       .sort((a, b) => ((Number(a.item.order) || 0) - (Number(b.item.order) || 0)) || (a.index - b.index))
       .map(({ item }) => ({
-        src: toDataUri(item.imageData),
+        src: toImageSrc(item.imageData.trim()),
         seconds: Number(item.duration) > 0 ? Number(item.duration) : DEFAULT_SECONDS
       }));
   }
