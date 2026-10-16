@@ -349,6 +349,26 @@ html, body{
   let shownSignature = null;
   let showingDefault = false;
 
+  // Preload every slide's image into the browser cache (and decode it) up
+  // front, so that advancing between slides never waits on a network
+  // fetch — only the already-cached image is reassigned to the slide's
+  // <img>. A per-image timeout keeps one stalled/broken URL from blocking
+  // the whole slideshow from starting.
+  function preloadImage(src){
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = resolve;
+      img.onerror = resolve;
+      img.src = src;
+      setTimeout(resolve, 15000);
+    });
+  }
+
+  function preloadAll(slides){
+    return Promise.all(slides.map((s) => preloadImage(s.src)));
+  }
+
   function buildSlides(slides){
     slideEls.forEach((el) => el.remove());
     slideEls = [];
@@ -408,9 +428,10 @@ html, body{
     scheduleAdvance();
   }
 
-  function show(slides){
+  async function show(slides){
     clearTimeout(advanceTimer);
     showingDefault = false;
+    await preloadAll(slides);
     noImagesEl.classList.remove('visible');
     bottomChrome.hidden = false;
     counterTotal.textContent = String(slides.length);
